@@ -1,8 +1,0 @@
-components:
-  securitySchemes:
-    ApiKeyAuth:
-      type: apiKey
-      in: header
-      name: X-API-Key
-      description: |
-        Get access to data while protecting your account credentials.

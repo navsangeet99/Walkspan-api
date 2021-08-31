@@ -5,6 +5,7 @@
  */
 
 const db = require("better-sqlite3")('./database/walkspan.sqlite', {readonly: true});
+const db2 = require("sqlite3")('./database/walkability.sqlite', {readonly:true});
 const distanceToLineSegment = require("distance-to-line-segment");
 const { sortBy } = require("underscore");
 
@@ -47,6 +48,30 @@ module.exports.getClosestSidewalk = (latitude, longitude) => {
         longitude: longitude
     });
 
+    const sidewalkCandidates2 = db2.prepare(`
+        SELECT
+            total1,
+            total2,
+            beauty_n,
+            beauty_m,
+            access,
+            interest,
+            amenities,
+            shape_length,
+            start_long,
+            end_long,
+            start_lat,
+            end_lat
+        FROM Bronx_Walkability
+        ORDER BY MIN(
+            ABS(start_lat - :latitude) + ABS(start_long - :longitude),
+            ABS(end_lat - :latitude) + ABS(end_long - :longitude)
+        ) ASC LIMIT 8;
+    `).all({
+        latitude: latitude,
+        longitude: longitude
+    });
+
     // Get the closest sidewalk of the returned dataset from our query
     return sortBy(sidewalkCandidates, sidewalkCandidate => {
         return distanceToLineSegment(
@@ -54,6 +79,16 @@ module.exports.getClosestSidewalk = (latitude, longitude) => {
             sidewalkCandidate.sidewalk_starting_longitude,
             sidewalkCandidate.sidewalk_ending_latitude,
             sidewalkCandidate.sidewalk_ending_longitude,
+            latitude,
+            longitude);
+    })[0];
+
+    return sortBy2(sidewalkCandidates2, sidewalkCandidate2 => {
+        return distanceToLineSegment2(
+            sidewalkCandidate2.start_lat,
+            sidewalkCandidate2.start_long,
+            sidewalkCandidate2.end_lat,
+            sidewalkCandidate2.end_long,
             latitude,
             longitude);
     })[0];
@@ -101,4 +136,34 @@ module.exports.getSidewalksInRadius = (latitude, longitude, range) => {
         rightLng
     });
 
+    return db2.prepare(`
+        SELECT
+           total1,
+            total2,
+            beauty_n,
+            beauty_m,
+            access,
+            interest,
+            amenities,
+            shape_length,
+            start_long,
+            end_long,
+            start_lat,
+            end_lat
+        FROM Bronx_Walkability
+        WHERE (
+            :bottomLat <= start_lat AND start_lat <= :topLat AND
+            :leftLng <= start_long AND start_long <= :rightLng
+        ) OR (
+            :bottomLat <= end_lat AND end_lat <= :topLat AND
+            :leftLng <= end_long AND end_long <= :rightLng
+        );
+    `).all({
+        topLat,
+        bottomLat,
+        leftLng,
+        rightLng
+    });
+
 }
+
